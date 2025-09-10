@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImageCraft Pro - Advanced Image Converter with Ratio selection </title>
+    <meta name="description" content="Free online tool to convert images to perfect social media sizes with AI-powered captions. Support for multiple formats and aspect ratios.">
+    <meta name="keywords" content="image converter, social media images, AI captions, image resizer, photo editor, Instagram story, Facebook post">
+    <meta name="author" content="ImageCraft Pro">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="ImageCraft Pro - Advanced Image Converter">
+    <meta property="og:description" content="Free online tool to convert images to perfect social media sizes with AI-powered captions.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://yourdomain.com">
+    <meta property="og:image" content="https://yourdomain.com/logo.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="ImageCraft Pro - Advanced Image Converter">
+    <meta name="twitter:description" content="Free online tool to convert images to perfect social media sizes with AI-powered captions.">
+    <meta name="twitter:image" content="https://yourdomain.com/logo.png">
+    <link rel="canonical" href="https://yourdomain.com">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+        }
+        .dotted-border {
+            border: 2px dashed #475569;
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        .progress-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #0ea5e9 0%, #3b82f6 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        .ratio-btn.active {
+            background-color: #0ea5e9;
+            color: white;
+        }
+        .canvas-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .download-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: 12px;
+        }
+        .canvas-wrapper:hover .download-overlay {
+            opacity: 1;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        /* Animation for image processing */
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        .processing {
+            animation: pulse 1.5s infinite;
+        }
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .ratio-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .action-buttons {
+                flex-direction: column;
+            }
+            .action-buttons button {
+                width: 100%;
+            }
+        }
+        .format-btn.active {
+            background-color: #0ea5e9;
+            color: white;
+        }
+    </style>
+</head>
+<body class="text-white flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-6xl mx-auto">
+        <div class="bg-slate-800/80 backdrop-blur-md rounded-2xl p-4 sm:p-6 shadow-2xl card-hover">
+            <div class="text-center mb-4 sm:mb-6">
+                <h1 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Advanced Image Converter</h1>
+                <p class="text-slate-300 mt-2 text-sm sm:text-base">Create perfectly sized images with AI-powered captions</p>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
+                <!-- Image Upload Section -->
+                <div id="upload-container" class="lg:col-span-1">
+                    <label for="image-upload" class="flex flex-col items-center justify-center w-full h-48 sm:h-64 border-2 border-slate-600 dotted-border rounded-2xl cursor-pointer hover:bg-slate-700/50 transition-all duration-300">
+                        <div class="flex flex-col items-center justify-center p-4 text-center">
+                            <i class="fas fa-cloud-upload-alt text-3xl sm:text-4xl mb-2 sm:mb-3 text-slate-400"></i>
+                            <p class="mb-1 sm:mb-2 text-xs sm:text-sm text-slate-300"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                            <p class="text-xs text-slate-400">Supports PNG, JPG, WEBP (Max 10 images)</p>
+                        </div>
+                        <input id="image-upload" type="file" class="hidden" accept="image/png, image/jpeg, image/webp" multiple />
+                    </label>
+                    
+                    <!-- Aspect Ratio Selection -->
+                    <div class="mt-4 bg-slate-700/50 p-3 sm:p-4 rounded-xl">
+                        <h3 class="font-medium text-slate-300 mb-2 flex items-center text-sm sm:text-base">
+                            <i class="fas fa-crop-alt mr-2 text-cyan-400"></i> Aspect Ratio
+                        </h3>
+                        
+                        <div class="ratio-grid grid grid-cols-3 gap-2">
+                            <button data-ratio="9:16" class="ratio-btn active bg-slate-600 py-2 text-xs rounded-md transition-colors">9:16 (Story)</button>
+                            <button data-ratio="1:1" class="ratio-btn bg-slate-600 py-2 text-xs rounded-md transition-colors">1:1 (Square)</button>
+                            <button data-ratio="16:9" class="ratio-btn bg-slate-600 py-2 text-xs rounded-md transition-colors">16:9 (Landscape)</button>
+                            <button data-ratio="4:5" class="ratio-btn bg-slate-600 py-2 text-xs rounded-md transition-colors">4:5 (Portrait)</button>
+                            <button data-ratio="2:3" class="ratio-btn bg-slate-600 py-2 text-xs rounded-md transition-colors">2:3 (Post)</button>
+                            <button data-ratio="3:4" class="ratio-btn bg-slate-600 py-2 text-xs rounded-md transition-colors">3:4 (Classic)</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Conversion Mode -->
+                    <div class="mt-3 bg-slate-700/50 p-3 sm:p-4 rounded-xl">
+                        <h3 class="font-medium text-slate-300 mb-2 flex items-center text-sm sm:text-base">
+                            <i class="fas fa-sliders-h mr-2 text-cyan-400"></i> Conversion Mode
+                        </h3>
+                        <div class="flex space-x-2">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="mode" value="fit" class="peer sr-only" checked>
+                                <span class="px-3 py-1 text-xs font-medium text-slate-300 rounded-md peer-checked:bg-cyan-500 peer-checked:text-slate-900 transition-colors">Fit with Blur</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="mode" value="fill" class="peer sr-only">
+                                <span class="px-3 py-1 text-xs font-medium text-slate-300 rounded-md peer-checked:bg-cyan-500 peer-checked:text-slate-900 transition-colors">Fill and Crop</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- File Format Selection -->
+                    <div class="mt-3 bg-slate-700/50 p-3 sm:p-4 rounded-xl">
+                        <h3 class="font-medium text-slate-300 mb-2 flex items-center text-sm sm:text-base">
+                            <i class="fas fa-file-image mr-2 text-cyan-400"></i> Output Format
+                        </h3>
+                        
+                        <div class="grid grid-cols-3 gap-2">
+                            <button data-format="png" class="format-btn active bg-slate-600 py-2 text-xs rounded-md transition-colors">PNG</button>
+                            <button data-format="jpeg" class="format-btn bg-slate-600 py-2 text-xs rounded-md transition-colors">JPEG</button>
+                            <button data-format="webp" class="format-btn bg-slate-600 py-2 text-xs rounded-md transition-colors">WEBP</button>
+                        </div>
+                    </div>
+
+                    <!-- Blur and Opacity Controls -->
+                    <div class="mt-3 bg-slate-700/50 p-3 sm:p-4 rounded-xl">
+                        <h3 class="font-medium text-slate-300 mb-2 flex items-center text-sm sm:text-base">
+                            <i class="fas fa-adjust mr-2 text-cyan-400"></i> Effects
+                        </h3>
+                        
+                        <div class="mb-3">
+                            <label class="text-xs text-slate-400 block mb-1">Blur Intensity</label>
+                            <input type="range" min="0" max="50" value="25" class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer" id="blur-slider">
+                            <div class="flex justify-between text-xs text-slate-400 mt-1">
+                                <span>None</span>
+                                <span id="blur-value">25px</span>
+                                <span>Max</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="text-xs text-slate-400 block mb-1">Brightness</label>
+                            <input type="range" min="50" max="150" value="100" class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer" id="brightness-slider">
+                            <div class="flex justify-between text-xs text-slate-400 mt-1">
+                                <span>Dark</span>
+                                <span id="brightness-value">100%</span>
+                                <span>Bright</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Preview Section -->
+                <div id="result-container" class="lg:col-span-2 hidden">
+                    <div class="bg-slate-700/30 rounded-2xl p-3 sm:p-4 h-full">
+                        <div class="flex flex-col sm:flex-row justify-between items-center mb-3 sm:mb-4">
+                            <h2 class="text-lg font-semibold text-slate-200 mb-2 sm:mb-0">
+                                <i class="fas fa-images mr-2 text-cyan-400"></i> Converted Images
+                                <span id="image-count" class="text-slate-400 text-sm ml-2">(0)</span>
+                            </h2>
+                            
+                            <div class="action-buttons flex space-x-2 w-full sm:w-auto">
+                                <button id="download-all-btn" class="bg-cyan-500 hover:bg-cyan-600 text-slate-900 text-sm font-bold py-2 px-3 rounded-lg transition-all flex items-center justify-center flex-1 sm:flex-none">
+                                    <i class="fas fa-file-archive mr-1"></i> Download All
+                                </button>
+                                <button id="new-upload-btn" class="bg-slate-600 hover:bg-slate-700 text-white text-sm font-bold py-2 px-3 rounded-lg transition-all flex items-center justify-center flex-1 sm:flex-none">
+                                    <i class="fas fa-plus mr-1"></i> New Upload
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="loading-section" class="hidden">
+                            <p class="text-center text-slate-300 mb-2">Processing your images...</p>
+                            <div class="w-full bg-slate-600 rounded-full h-2.5 mb-4">
+                                <div id="progress-bar" class="progress-bar"></div>
+                            </div>
+                        </div>
+                        
+                        <div id="canvas-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-h-[500px] overflow-y-auto p-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions Section -->
+               <!-- About App Section -->
+            <div class="bg-slate-700/40 rounded-xl p-3 sm:p-4 mt-4 sm:mt-6">
+                <h3 class="font-medium text-slate-300 mb-2 flex items-center text-sm sm:text-base">
+                    <i class="fas fa-info-circle mr-2 text-cyan-400"></i> About ImageCraft Pro
+                </h3>
+                <p class="text-xs sm:text-sm text-slate-400 mb-2">
+                    ImageCraft Pro is a free online tool that helps you convert images to perfect sizes for social media platforms. 
+                    With support for multiple aspect ratios, file formats, and AI-powered caption generation, it's the ultimate tool 
+                    for content creators and social media managers.
+                </p>
+                <ol class="text-xs sm:text-sm text-slate-400 list-decimal pl-4 sm:pl-5 space-y-1">
+                    <li>Upload one or more images using the upload area</li>
+                    <li>Select your desired aspect ratio and conversion mode</li>
+                    <li>Choose output format (PNG, JPEG, or WEBP)</li>
+                    <li>Adjust blur and brightness effects as needed</li>
+                    <li>Click on any image to download it individually</li>
+                    <li>Use the "Download All" button to get all images as a ZIP file</li>
+                    <li>Generate AI-powered captions with the "Suggest Captions" button</li>
+                </ol>
+            </div>
+        </div>
+        
+        <footer class="text-center mt-4 sm:mt-6">
+            <p class="text-xs sm:text-sm text-slate-500">© 2023 ImageCraft Pro. All rights reserved. AI features powered by Gemini.</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM Elements
+        const uploadContainer = document.getElementById('upload-container');
+        const resultContainer = document.getElementById('result-container');
+        const imageUpload = document.getElementById('image-upload');
+        const downloadAllBtn = document.getElementById('download-all-btn');
+        const newUploadBtn = document.getElementById('new-upload-btn');
+        const canvasContainer = document.getElementById('canvas-container');
+        const loadingSection = document.getElementById('loading-section');
+        const progressBar = document.getElementById('progress-bar');
+        const imageCount = document.getElementById('image-count');
+        const blurSlider = document.getElementById('blur-slider');
+        const blurValue = document.getElementById('blur-value');
+        const brightnessSlider = document.getElementById('brightness-slider');
+        const brightnessValue = document.getElementById('brightness-value');
+        
+        // State variables
+        let currentImages = [];
+        let currentAspectRatio = "9:16";
+        let currentMode = "fit";
+        let currentFormat = "png";
+        let currentBlur = 25;
+        let currentBrightness = 100;
+
+        // Initialize the app
+        function initApp() {
+            // Set up event listeners
+            setupEventListeners();
+        }
+
+        // Set up all event listeners
+        function setupEventListeners() {
+            // Drag and drop functionality
+            const dropArea = uploadContainer.querySelector('label');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+            ['dragenter', 'dragover'].forEach(eventName => dropArea.addEventListener(eventName, () => dropArea.classList.add('bg-slate-700/50'), false));
+            ['dragleave', 'drop'].forEach(eventName => dropArea.addEventListener(eventName, () => dropArea.classList.remove('bg-slate-700/50'), false));
+            dropArea.addEventListener('drop', handleDrop, false);
+
+            // File input change
+            imageUpload.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files.length > 0) handleFiles(e.target.files);
+            });
+
+            // Ratio buttons
+            document.querySelectorAll('.ratio-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentAspectRatio = this.dataset.ratio;
+                    if (currentImages.length > 0) {
+                        renderAllImages(currentMode);
+                    }
+                });
+            });
+
+            // Format buttons
+            document.querySelectorAll('.format-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFormat = this.dataset.format;
+                });
+            });
+
+            // Mode change
+            document.querySelectorAll('input[name="mode"]').forEach(radio => {
+                radio.addEventListener('change', (event) => {
+                    currentMode = event.target.value;
+                    if (currentImages.length > 0) renderAllImages(currentMode);
+                });
+            });
+
+            // Blur slider
+            blurSlider.addEventListener('input', (e) => {
+                currentBlur = parseInt(e.target.value);
+                blurValue.textContent = `${currentBlur}px`;
+                if (currentImages.length > 0) renderAllImages(currentMode);
+            });
+
+            // Brightness slider
+            brightnessSlider.addEventListener('input', (e) => {
+                currentBrightness = parseInt(e.target.value);
+                brightnessValue.textContent = `${currentBrightness}%`;
+                if (currentImages.length > 0) renderAllImages(currentMode);
+            });
+
+            // Download all button
+            downloadAllBtn.addEventListener('click', downloadAllImages);
+
+            // New upload button
+            newUploadBtn.addEventListener('click', resetUpload);
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            if (dt.files.length > 0) handleFiles(dt.files);
+        }
+
+        function handleFiles(files) {
+            const filesToProcess = Array.from(files).slice(0, 10);
+            const imagePromises = filesToProcess.map(file => {
+                return new Promise((resolve) => {
+                    if (!file.type.startsWith('image/')) { resolve(null); return; }
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => resolve({img: img, type: file.type, name: file.name});
+                        img.onerror = () => resolve(null);
+                        img.src = event.target.result;
+                    };
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            uploadContainer.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            loadingSection.classList.remove('hidden');
+            canvasContainer.innerHTML = '';
+            
+            // Reset and animate progress bar
+            progressBar.style.width = '0%';
+            setTimeout(() => { progressBar.style.width = '70%'; }, 300);
+
+            Promise.all(imagePromises).then(results => {
+                currentImages = results.filter(r => r !== null);
+                imageCount.textContent = `(${currentImages.length})`;
+                
+                // Complete progress bar animation
+                progressBar.style.width = '100%';
+                
+                setTimeout(() => {
+                    loadingSection.classList.add('hidden');
+                    renderAllImages(currentMode);
+                }, 500);
+            }).catch(error => {
+                console.error("Error loading images:", error);
+                loadingSection.querySelector('p').innerText = "Error loading one or more images.";
+            });
+        }
+        
+        function renderAllImages(mode) {
+            canvasContainer.innerHTML = ''; 
+            
+            currentImages.forEach((imgData, index) => {
+                const [ratioX, ratioY] = currentAspectRatio.split(':').map(Number);
+                const aspectRatio = ratioX / ratioY;
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'bg-slate-700/30 p-3 rounded-xl flex flex-col gap-3 card-hover';
+                
+                const canvasWrapper = document.createElement('div');
+                canvasWrapper.className = 'canvas-wrapper';
+                
+                const canvas = document.createElement('canvas');
+                canvas.className = 'w-full';
+                canvas.id = `canvas-${index}`;
+                
+                const downloadOverlay = document.createElement('div');
+                downloadOverlay.className = 'download-overlay';
+                
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'bg-cyan-500 hover:bg-cyan-600 text-slate-900 font-bold py-2 px-3 rounded-lg transition-transform transform hover:scale-110 flex items-center text-xs sm:text-sm';
+                downloadBtn.innerHTML = '<i class="fas fa-download mr-1 sm:mr-2"></i> Download';
+                downloadBtn.onclick = () => downloadSingleImage(canvas, index);
+                
+                downloadOverlay.appendChild(downloadBtn);
+                canvasWrapper.appendChild(canvas);
+                canvasWrapper.appendChild(downloadOverlay);
+                
+                const captionButton = document.createElement('button');
+                captionButton.innerHTML = `<i class="fas fa-wand-magic-sparkles mr-2"></i> Suggest Captions`;
+                captionButton.className = 'w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center text-sm';
+                captionButton.onclick = () => getCaptionFromGemini(canvas, `caption-result-${index}`);
+
+                const captionResultDiv = document.createElement('div');
+                captionResultDiv.id = `caption-result-${index}`;
+                captionResultDiv.className = 'w-full p-3 bg-slate-800 rounded-lg text-sm text-slate-300 hidden caption-content';
+                
+                wrapper.appendChild(canvasWrapper);
+                wrapper.appendChild(captionButton);
+                wrapper.appendChild(captionResultDiv);
+                canvasContainer.appendChild(wrapper);
+
+                processImage(imgData.img, mode, canvas, aspectRatio);
+            });
+        }
+
+        function processImage(img, mode, canvas, aspectRatio) {
+            if (!img || !canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            // Calculate dimensions based on selected aspect ratio
+            const outputHeight = 1200; // Reduced for better performance
+            const outputWidth = outputHeight * aspectRatio;
+            
+            canvas.width = outputWidth;
+            canvas.height = outputHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+
+            const imageAspectRatio = img.width / img.height;
+            
+            if (mode === 'fit') {
+                // Apply blur effect to background
+                ctx.filter = `blur(${currentBlur}px) brightness(${currentBrightness}%)`;
+                ctx.drawImage(img, 0, 0, outputWidth, outputHeight);
+                ctx.filter = 'none';
+                
+                // Draw the image centered
+                let drawWidth, drawHeight, x, y;
+                
+                if (imageAspectRatio > aspectRatio) {
+                    drawWidth = outputWidth;
+                    drawHeight = drawWidth / imageAspectRatio;
+                } else {
+                    drawHeight = outputHeight;
+                    drawWidth = drawHeight * imageAspectRatio;
+                }
+                
+                x = (outputWidth - drawWidth) / 2;
+                y = (outputHeight - drawHeight) / 2;
+                ctx.drawImage(img, x, y, drawWidth, drawHeight);
+            } else if (mode === 'fill') {
+                // Fill and crop mode
+                let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
+                
+                if (imageAspectRatio > aspectRatio) {
+                    sWidth = sHeight * aspectRatio;
+                    sx = (img.width - sWidth) / 2;
+                } else {
+                    sHeight = sWidth / aspectRatio;
+                    sy = (img.height - sHeight) / 2;
+                }
+                
+                // Apply brightness filter
+                ctx.filter = `brightness(${currentBrightness}%)`;
+                ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, outputWidth, outputHeight);
+                ctx.filter = 'none';
+            }
+        }
+
+        async function getCaptionFromGemini(canvas, resultDivId) {
+            const resultElement = document.getElementById(resultDivId);
+            resultElement.classList.remove('hidden');
+            resultElement.innerHTML = '<div class="flex justify-center items-center py-2"><i class="fas fa-spinner fa-spin text-cyan-400 mr-2"></i> Thinking of creative captions...</div>';
+
+            // Use the appropriate MIME type based on selected format
+            const mimeType = currentFormat === 'png' ? 'image/png' : 
+                            currentFormat === 'webp' ? 'image/webp' : 'image/jpeg';
+            
+            const dataUrl = canvas.toDataURL(mimeType);
+            const base64Data = dataUrl.split(',')[1];
+            
+            const apiKey = ""; // Will be provided by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: "You are a witty and creative social media expert. Analyze this image and provide 3 engaging caption ideas and a list of 5 relevant hashtags. Format the response clearly with headings, like '--- Captions ---' and '--- Hashtags ---'." },
+                        { inlineData: { mimeType: mimeType, data: base64Data } }
+                    ]
+                }],
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    resultElement.innerText = candidate.content.parts[0].text;
+                } else {
+                    throw new Error("No content found in API response.");
+                }
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                resultElement.innerHTML = '<div class="text-rose-400"><i class="fas fa-exclamation-circle mr-2"></i> Sorry, couldn\'t generate captions. Please try again.</div>';
+            }
+        }
+
+        function downloadSingleImage(canvas, index) {
+            let mimeType, fileExtension;
+            
+            switch(currentFormat) {
+                case 'png':
+                    mimeType = 'image/png';
+                    fileExtension = 'png';
+                    break;
+                case 'jpeg':
+                    mimeType = 'image/jpeg';
+                    fileExtension = 'jpg';
+                    break;
+                case 'webp':
+                    mimeType = 'image/webp';
+                    fileExtension = 'webp';
+                    break;
+                default:
+                    mimeType = 'image/png';
+                    fileExtension = 'png';
+            }
+            
+            const link = document.createElement('a');
+            link.download = `converted-${currentAspectRatio.replace(':', 'x')}-${index + 1}.${fileExtension}`;
+            link.href = canvas.toDataURL(mimeType);
+            link.click();
+        }
+        
+        function downloadAllImages() {
+            if (typeof JSZip === 'undefined') { 
+                alert("JSZip library not loaded!"); 
+                return; 
+            }
+            
+            const zip = new JSZip();
+            const canvases = canvasContainer.querySelectorAll('canvas');
+
+            // Show loading state
+            downloadAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Preparing...';
+            downloadAllBtn.disabled = true;
+
+            let mimeType, fileExtension;
+            
+            switch(currentFormat) {
+                case 'png':
+                    mimeType = 'image/png';
+                    fileExtension = 'png';
+                    break;
+                case 'jpeg':
+                    mimeType = 'image/jpeg';
+                    fileExtension = 'jpg';
+                    break;
+                case 'webp':
+                    mimeType = 'image/webp';
+                    fileExtension = 'webp';
+                    break;
+                default:
+                    mimeType = 'image/png';
+                    fileExtension = 'png';
+            }
+
+            let processed = 0;
+            canvases.forEach((canvas, index) => {
+                const dataUrl = canvas.toDataURL(mimeType);
+                const base64Data = dataUrl.split(',')[1];
+                zip.file(`converted-${currentAspectRatio.replace(':', 'x')}-${index + 1}.${fileExtension}`, base64Data, {base64: true});
+                
+                processed++;
+                if (processed === canvases.length) {
+                    zip.generateAsync({type:"blob"}).then(function(content) {
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(content);
+                        link.download = "converted-images.zip";
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Reset button state
+                        downloadAllBtn.innerHTML = '<i class="fas fa-file-archive mr-1"></i> Download All';
+                        downloadAllBtn.disabled = false;
+                    });
+                }
+            });
+        }
+
+        function resetUpload() {
+            uploadContainer.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+            imageUpload.value = ''; 
+            currentImages = [];
+            canvasContainer.innerHTML = '';
+        }
+
+        // Initialize the app when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
