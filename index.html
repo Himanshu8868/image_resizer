@@ -14,7 +14,6 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            touch-action: pan-y; 
         }
         .dotted-border {
             border-style: dashed;
@@ -435,7 +434,6 @@
                     ctx.strokeRect(x, y, drawWidth, drawHeight);
                 }
 
-                // Grain & Vignette must be drawn after main image but before text/stickers
                 const grainStrength = document.getElementById('grain-slider').value;
                 if (grainStrength > 0 && grainPattern) {
                     ctx.save();
@@ -475,7 +473,7 @@
                     ctx.fillRect(0, 0, outputWidth, outputHeight);
                     ctx.restore();
                 }
-                 // Vignette for fill mode
+
                 const vignetteStrength = document.getElementById('vignette-slider').value;
                 if (vignetteStrength > 0) {
                     const outerRadius = Math.sqrt(Math.pow(outputWidth / 2, 2) + Math.pow(outputHeight / 2, 2));
@@ -513,26 +511,22 @@
             colorSwatchesContainer.innerHTML = '';
             redrawAllImages();
         }));
-        document.querySelectorAll('#framing-panel input').forEach(el => {
-            el.addEventListener('input', redrawAllImages);
+        
+        // PERFORMANCE: Use 'change' event for sliders and color pickers to avoid lag
+        document.querySelectorAll('#framing-panel input, #filter-options input[type="range"], #fit-mode-options input').forEach(el => {
+            el.addEventListener('change', redrawAllImages);
         });
-       
-        document.getElementById('blur-slider').addEventListener('input', redrawAllImages);
-        document.getElementById('bg-color-picker').addEventListener('input', redrawAllImages);
-        document.querySelectorAll('#filter-options input[type="range"]').forEach(slider => {
-            slider.addEventListener('input', redrawAllImages);
-        });
-        document.querySelectorAll('.filter-btn').forEach(button => {
+        
+        document.querySelectorAll('.filter-btn, .preset-btn').forEach(button => {
             button.addEventListener('click', (e) => {
-                const filter = e.target.dataset.filter;
-                document.body.dataset[filter] = document.body.dataset[filter] === '1' ? '0' : '1';
-                e.target.classList.toggle('active');
+                if(e.currentTarget.classList.contains('filter-btn')){
+                    const filter = e.target.dataset.filter;
+                    document.body.dataset[filter] = document.body.dataset[filter] === '1' ? '0' : '1';
+                    e.target.classList.toggle('active');
+                } else {
+                     applyPreset(e.target.dataset.preset);
+                }
                 redrawAllImages();
-            });
-        });
-        document.querySelectorAll('.preset-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                applyPreset(e.target.dataset.preset);
             });
         });
         
@@ -555,11 +549,8 @@
             document.body.dataset.grayscale = preset.gray;
             document.body.dataset.invert = '0';
             
-            // Update button UI
             document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
             if(preset.gray) document.querySelector('[data-filter="grayscale"]').classList.add('active');
-            
-            redrawAllImages();
         }
         
         document.getElementById('reset-filters-btn').addEventListener('click', () => {
@@ -572,7 +563,7 @@
             document.body.dataset.grayscale = '0';
             document.body.dataset.invert = '0';
             document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            cropCoords = null; // Also reset crop
+            cropCoords = null; 
             redrawAllImages();
         });
 
