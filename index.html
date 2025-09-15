@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>9:16 Image Converter with AI Captions</title>
+    <title>9:16 Image Converter</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- JSZip library for creating zip files -->
@@ -56,6 +56,10 @@
             background-color: #06b6d4; /* Tailwind cyan-500 */
             color: #111827; /* Tailwind gray-900 */
         }
+        .preset-btn.active {
+            background-color: #a855f7; /* Tailwind purple-500 */
+             color: #ffffff;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-white flex items-center justify-center min-h-screen p-2 sm:p-4">
@@ -64,7 +68,7 @@
         <div class="bg-slate-800 rounded-2xl p-4 sm:p-8 shadow-2xl">
             <div class="text-center">
                 <h1 class="text-2xl sm:text-3xl font-bold text-cyan-400">9:16 Image Converter</h1>
-                <p class="text-slate-400 mt-2">Create perfect story-sized images with your AI Photo Coach.</p>
+                <p class="text-slate-400 mt-2">A powerful offline-first image editor.</p>
             </div>
 
             <!-- Image Upload Section -->
@@ -73,7 +77,7 @@
                     <div class="flex flex-col items-center justify-center pt-5 pb-6">
                         <svg class="w-10 h-10 mb-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
                         <p class="mb-2 text-sm text-slate-400"><span class="font-semibold">Click to upload</span> or drag and drop</p>
-                        <p class="text-xs text-slate-500">Upload up to 10 images (PNG, JPG, WEBP)</p>
+                        <p class="text-xs text-slate-500">Upload up to 50 images (PNG, JPG, WEBP)</p>
                     </div>
                     <input id="image-upload" type="file" class="hidden" accept="image/png, image/jpeg, image/webp" multiple />
                 </label>
@@ -214,7 +218,7 @@
             </div>
         </div>
         <footer class="text-center mt-6">
-            <p class="text-sm text-slate-500">reserved and features powered by Him/p>
+            <p class="text-sm text-slate-500">AI features powered by Gemini</p>
         </footer>
     </div>
     
@@ -246,11 +250,8 @@
         const canvasContainer = document.getElementById('canvas-container');
         const loadingMessage = document.getElementById('loading-message');
         const fitModeOptions = document.getElementById('fit-mode-options');
-        const blurControls = document.getElementById('blur-controls');
-        const colorControls = document.getElementById('color-controls');
         const suggestColorsBtn = document.getElementById('suggest-colors-btn');
         const colorSwatchesContainer = document.getElementById('color-swatches-container');
-        const filterOptions = document.getElementById('filter-options');
         const smartCropContainer = document.getElementById('smart-crop-container');
         const smartCropBtn = document.getElementById('smart-crop-btn');
         const manualCropBtn = document.getElementById('manual-crop-btn');
@@ -261,7 +262,7 @@
         const framingPanel = document.getElementById('framing-panel');
         
         let currentImages = [];
-        let cropCoords = null; // To store AI or Manual crop suggestion
+        let cropCoords = null;
         let cropper = null;
         let grainPattern = null;
 
@@ -278,7 +279,7 @@
         function handleFiles(files) {
             if (!files || files.length === 0) return;
             cropCoords = null; 
-            const filesToProcess = Array.from(files).slice(0, 10);
+            const filesToProcess = Array.from(files).slice(0, 50);
             const imagePromises = filesToProcess.map(file => new Promise((resolve) => {
                 if (!file.type.startsWith('image/')) { resolve(null); return; }
                 const reader = new FileReader();
@@ -327,6 +328,21 @@
                 processImage(imgData.img, mode, canvas);
             });
         }
+
+        // PERFORMANCE OPTIMIZATION: Debounce function
+        const debounce = (func, wait) => {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        };
+        
+        const debouncedRedraw = debounce(redrawAllImages, 200); // Wait 200ms after user stops moving slider
 
         function redrawAllImages() {
             const mode = document.querySelector('input[name="mode"]:checked').value;
@@ -404,7 +420,7 @@
                 const borderThickness = document.getElementById('border-thickness-slider').value;
                 if(borderThickness > 0) {
                     ctx.strokeStyle = document.getElementById('border-color-picker').value;
-                    ctx.lineWidth = borderThickness * 2; // Make it more visible
+                    ctx.lineWidth = borderThickness * 2;
                     ctx.strokeRect(x, y, drawWidth, drawHeight);
                 }
 
@@ -478,26 +494,25 @@
             cropCoords = null;
             redrawAllImages();
         }));
-        document.querySelectorAll('input[name="bg-type"]').forEach(radio => radio.addEventListener('change', (event) => {
-            const isBlur = event.target.value === 'blur';
-            blurControls.classList.toggle('hidden', !isBlur);
-            colorControls.classList.toggle('hidden', isBlur);
-            colorSwatchesContainer.innerHTML = '';
-            redrawAllImages();
-        }));
         
-        // PERFORMANCE: Use 'change' event for sliders and color pickers to avoid lag
-        document.querySelectorAll('#framing-panel input, #filter-options input[type="range"], #fit-mode-options input').forEach(el => {
-            el.addEventListener('change', redrawAllImages);
+        // Use 'input' for live preview with debounce for sliders
+        document.querySelectorAll('input[type="range"]').forEach(el => {
+            el.addEventListener('input', debouncedRedraw);
         });
         
-        document.querySelectorAll('.filter-btn, .preset-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
+        // Use 'change' for color pickers (fires when picker is closed)
+        document.querySelectorAll('input[type="color"]').forEach(el => {
+            el.addEventListener('change', redrawAllImages);
+        });
+
+        // Use 'click' for buttons
+        document.querySelectorAll('input[name="bg-type"], .filter-btn, .preset-btn').forEach(button => {
+             button.addEventListener('click', (e) => {
                 if(e.currentTarget.classList.contains('filter-btn')){
                     const filter = e.target.dataset.filter;
                     document.body.dataset[filter] = document.body.dataset[filter] === '1' ? '0' : '1';
                     e.target.classList.toggle('active');
-                } else {
+                } else if(e.currentTarget.classList.contains('preset-btn')){
                      applyPreset(e.target.dataset.preset);
                 }
                 redrawAllImages();
@@ -514,6 +529,9 @@
             const preset = presets[presetName];
             if (!preset) return;
             
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.preset-btn[data-preset="${presetName}"]`).classList.add('active');
+
             document.getElementById('brightness-slider').value = preset.bright;
             document.getElementById('contrast-slider').value = preset.contrast;
             document.getElementById('saturate-slider').value = preset.sat;
@@ -536,12 +554,12 @@
             document.getElementById('grain-slider').value = 0;
             document.body.dataset.grayscale = '0';
             document.body.dataset.invert = '0';
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.filter-btn, .preset-btn').forEach(btn => btn.classList.remove('active'));
             cropCoords = null; 
             redrawAllImages();
         });
 
-        // --- Manual Cropper Logic ---
+        // Manual Cropper Logic
         manualCropBtn.addEventListener('click', () => {
             if (currentImages.length === 0) return;
             cropImageTarget.src = currentImages[0].img.src;
@@ -564,7 +582,7 @@
             redrawAllImages();
         });
         
-        // --- Film Grain Pattern Generation ---
+        // Film Grain Pattern Generation
         function createGrainPattern() {
             const grainCanvas = document.createElement('canvas');
             const grainCtx = grainCanvas.getContext('2d');
@@ -611,7 +629,7 @@
         
         async function getSuggestedColors() {
             if (currentImages.length === 0) return;
-            colorSwatchesContainer.innerHTML = `<span class="text-xs text-slate-400">✨ Analyzing colors...</span>`;
+            colorSwatchesContainer.innerHTML = `<span class="text-xs text-slate-400">✨ Analyzing...</span>`;
             try {
                 const firstImage = currentImages[0];
                 const tempCanvas = document.createElement('canvas');
@@ -622,7 +640,9 @@
                 const base64Data = dataUrl.split(',')[1];
                 const payload = { contents: [{ parts: [ { text: "Analyze this image. Suggest 5 complementary hex color codes for a background. Provide the response as a valid JSON array of strings. Example: [\"#1A2B3C\", \"#D4E5F6\"]" }, { inlineData: { mimeType: 'image/jpeg', data: base64Data } } ] }], };
                 const responseText = await makeGeminiApiCall(payload);
-                const colors = JSON.parse(responseText.match(/\[.*\]/s)[0]);
+                const colorMatch = responseText.match(/\[.*\]/s);
+                if (!colorMatch) throw new Error("Invalid format from API.");
+                const colors = JSON.parse(colorMatch[0]);
                 colorSwatchesContainer.innerHTML = ''; 
                 colors.forEach(color => {
                     const swatch = document.createElement('div');
@@ -634,13 +654,12 @@
                 });
             } catch (error) {
                 console.error("Gemini color suggestion failed:", error);
-                colorSwatchesContainer.innerHTML = `<span class="text-xs text-rose-400">Could not get suggestions. ${error.message}</span>`;
+                colorSwatchesContainer.innerHTML = `<span class="text-xs text-rose-400">Could not get suggestions.</span>`;
             }
         }
 
         async function suggestSmartCrop() {
             if (currentImages.length === 0) return;
-            const originalButtonText = smartCropBtn.innerHTML;
             smartCropBtn.innerHTML = '✨ Analyzing...';
             smartCropBtn.disabled = true;
             try {
@@ -650,7 +669,9 @@
                 const prompt = "Analyze this image and identify the bounding box of the most important subject or focal point. Respond with ONLY a valid JSON object containing keys for 'x', 'y', 'width', and 'height'. The values should be normalized from 0.0 to 1.0, representing the position and size relative to the image dimensions. Example: {\"x\": 0.25, \"y\": 0.1, \"width\": 0.5, \"height\": 0.8}";
                 const payload = { contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: firstImage.type, data: base64Data } } ] }] };
                 const responseText = await makeGeminiApiCall(payload);
-                const subjectBox = JSON.parse(responseText.match(/{.*}/s)[0]);
+                const jsonMatch = responseText.match(/{.*}/s);
+                if (!jsonMatch) throw new Error("Invalid format from API.");
+                const subjectBox = JSON.parse(jsonMatch[0]);
                 
                 const img = firstImage.img;
                 const aspectRatio = 9 / 16;
@@ -674,7 +695,7 @@
                 console.error("Gemini Smart Crop failed:", error);
                 alert("Sorry, I couldn't suggest a crop. Please try again.");
             } finally {
-                smartCropBtn.innerHTML = originalButtonText;
+                smartCropBtn.innerHTML = '✨ Suggest Smart Crop';
                 smartCropBtn.disabled = false;
             }
         }
